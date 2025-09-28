@@ -1,0 +1,21 @@
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBmoHGGVub9cCg-6NwKxLVp2ja1EXkIXeQ",
+  authDomain: "gamebot1222.firebaseapp.com",
+  projectId: "gamebot1222",
+  storageBucket: "gamebot1222.firebasestorage.app",
+  messagingSenderId: "299553395149",
+  appId: "1:299553395149:web:9867a78c086832d34ff484",
+  measurementId: "G-SZNZL5L08C"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);

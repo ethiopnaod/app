@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  // --- Helper Functions ---
+  function isAuthenticated() {
+    return request.auth != null;
+  }
+  function isAdmin() {
+    return isAuthenticated() && request.auth.token.admin == true;
+  }
+  function isOwner(userId) {
+    return isAuthenticated() && request.auth.uid == userId;
+  }
+  function isValidAmount(amount) {
+    return amount is number && amount >= 0 && amount <= 1000000;
+  }
+  function isValidGameStatus(status) {
+    return status in ['waiting', 'active', 'completed', 'cancelled'];
+  }
+  function isValidTransactionType(type) {
+    return type in ['deposit', 'withdrawal', 'reward', 'purchase'];
+  }
+  function isValidTransactionStatus(status) {
+    return status in ['pending', 'completed', 'failed', 'cancelled'];
+  }
+  function isValidTicketStatus(status) {
+    return status in ['open', 'closed', 'pending'];
+  }
+  function isValidTicketPriority(priority) {
+    return priority in ['low', 'medium', 'high'];
+  }
+
+  match /databases/{database}/documents {
+    // --- Users ---
+    match /users/{userId} {
+      allow read, update, delete: if isOwner(userId);
+      allow create: if isAuthenticated();
+    }
+
+    // --- Wallets ---
+    match /wallets/{walletId} {
+      allow read: if isOwner(walletId);
+      allow create: if isOwner(walletId) && request.auth.token.email_verified == true && isValidAmount(request.resource.data.balance);
+      allow update: if (isOwner(walletId) || isAdmin()) && request.auth.token.email_verified == true && isValidAmount(request.resource.data.balance);
+      allow delete: if isAdmin();
+    }
+
+    // --- Games ---
+    match /games/{gameId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.token.email_verified == true && request.resource.data.createdBy == request.auth.uid && request.resource.data.players.hasAny([request.auth.uid]) && isValidGameStatus(request.resource.data.status) && isValidAmount(request.resource.data.entryFee) && request.resource.data.maxPlayers is number && request.resource.data.maxPlayers >= 2 && request.resource.data.maxPlayers <= 50;
+      allow update: if (request.resource.data.createdBy == request.auth.uid || isAdmin()) && request.auth.token.email_verified == true && isValidGameStatus(request.resource.data.status);
+      allow delete: if isAdmin();
+    }
+
+    // --- Game Rooms ---
+    match /gameRooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.token.email_verified == true && request.resource.data.createdBy == request.auth.uid && request.resource.data.players.hasAny([request.auth.uid]);
+      allow update: if (request.auth.uid == resource.data.createdBy || isAdmin()) && request.auth.token.email_verified == true;
+      allow delete: if isAdmin();
+    }
+
+    // --- Transactions ---
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.token.email_verified == true && request.resource.data.userId == request.auth.uid && isValidTransactionType(request.resource.data.type) && isValidTransactionStatus(request.resource.data.status) && isValidAmount(request.resource.data.amount);
+      allow update: if isAdmin() && isValidTransactionStatus(request.resource.data.status) && isValidAmount(request.resource.data.amount);
+      allow delete: if isAdmin();
+    }
+
+    // --- Support Tickets ---
+    match /support_tickets/{ticketId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.token.email_verified == true && request.resource.data.userId == request.auth.uid && request.resource.data.subject is string && request.resource.data.subject.size() > 0 && request.resource.data.subject.size() <= 200 && request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 2000 && isValidTicketStatus(request.resource.data.status) && isValidTicketPriority(request.resource.data.priority);
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin()) && request.auth.token.email_verified == true && isValidTicketStatus(request.resource.data.status) && isValidTicketPriority(request.resource.data.priority);
+      allow delete: if isAdmin();
+    }
+
+    // --- Admin Logs ---
+    match /admin_logs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- System Settings ---
+    match /system_settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Leaderboards ---
+    match /leaderboards/{leaderboardId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Payment Webhooks ---
+    match /payment_webhooks/{webhookId} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- User Sessions ---
+    match /user_sessions/{sessionId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // --- Game Statistics ---
+    match /game_stats/{statId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Chat Messages ---
+    match /chat_messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.token.email_verified == true && request.resource.data.userId == request.auth.uid && request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 500;
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin()) && request.auth.token.email_verified == true;
+    }
+
+    // --- Voice Settings ---
+    match /voice_settings/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // --- Achievements ---
+    match /achievements/{achievementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- User Achievements ---
+    match /user_achievements/{userAchievementId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow write: if isAuthenticated() && request.auth.token.email_verified == true && request.resource.data.userId == request.auth.uid;
+    }
+    // Note: Rate limiting and soft deletes should be handled in backend or via Cloud Functions.
+  }
+}

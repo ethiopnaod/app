@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "bingo-game-39ba5",
+    "game": "gamebot1222",
+    "bingo": "bingo-db769"
+  },
+  "targets": {},
+  "etags": {}
+}
